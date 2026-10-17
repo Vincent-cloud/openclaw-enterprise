@@ -39,6 +39,14 @@ func (r *runner) writeKubeconfigs(ctx context.Context, s *developmentState) erro
 	if err != nil {
 		return err
 	}
+	// Docker Desktop may generate host.docker.internal in the host kubeconfig.
+	// The k3d API is explicitly published on host loopback, so normalise that
+	// endpoint before validating and writing the host-side kubeconfig.
+	data = []byte(strings.ReplaceAll(
+		string(data),
+		"https://host.docker.internal:",
+		"https://127.0.0.1:",
+	))
 	host := filepath.Join(s.directory, "kubeconfig")
 	if err := exclusiveWrite(host, data, 0600); err != nil {
 		return err
