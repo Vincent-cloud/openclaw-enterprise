@@ -1,7 +1,7 @@
 ---
 created: 2026-09-09
-updated: 2026-10-15
-last_updated_session: authoring-run/c11897e0-33a6-4276-b620-aaec6d57ab00
+updated: 2026-10-17
+last_updated_session: authoring-run/c8cc0a85-dfaf-434d-9adf-7e8f1846f7a0
 ---
 
 # Compose development startup
@@ -88,8 +88,12 @@ Without selected runtime images, the helper builds missing
 `openclaw-enterprise-runtime:quickstart` from `deploy/runtime/Dockerfile` with
 repository-root context. Custom images must exist; incomplete selection fails.
 Existing tags survive recipe changes; [rebuild and verify](../../../deploy/runtime/README.md#rebuild-an-existing-image)
-after package changes. The recipe owns plugins and gateway/Codex compatibility;
-`dev-up` neither installs missing plugins nor verifies model turns.
+after package changes. The `openclaw-dependency-inputs` stage limits pnpm network
+concurrency to 4, retries fetches 5 times with 10,000-60,000 ms retry delays, and
+sets a 300,000 ms fetch timeout. Both `openclaw-build` and
+`openclaw-production-deps` inherit those settings; `install-attempts.sh` separately
+bounds whole install attempts. The recipe owns plugins and gateway/Codex
+compatibility; `dev-up` neither installs missing plugins nor verifies model turns.
 
 ### 2. compose.yaml:services.postgres and services.migrate
 
@@ -270,9 +274,12 @@ image skips lookup. OpenShell uses its pinned image in both control-plane modes.
 The cluster API binds host loopback; creation leaves the default kubeconfig and
 current context unchanged.
 
-The host kubeconfig stays private. Non-root API/worker containers receive
-read-only configuration and kubeconfig for the TLS-verified internal load balancer,
-without the engine socket.
+`writeKubeconfigs` normalizes a Docker Desktop-generated
+`host.docker.internal` API endpoint to `127.0.0.1` before validating and writing
+the private host kubeconfig at mode `0600`. It derives the container copy from that
+normalized configuration, rewrites its server to the TLS-verified internal k3d load
+balancer with the matching TLS server name, and writes it at mode `0644`. Non-root
+API/worker containers receive that read-only container kubeconfig without the engine socket.
 
 `internal/occdev/kubernetes.go:engineImageReference` resolves engine-recorded names,
 including Podman `localhost/` and Docker Hub, defaults omitted tags to `:latest`,
@@ -357,6 +364,8 @@ DNS/TLS, both Helm passes, recovery and destructive teardown.
 
 ## Debugging and Verification
 
+- `go test ./internal/occdev -run '^TestWriteKubeconfigsNormalizesDockerDesktopHost$' -count=1` verifies Docker Desktop host normalization, host validation, the internal container endpoint, and both kubeconfig file modes.
+- `node --test tests/integration/runtime-dockerfile-network-settings.test.mjs` verifies that the runtime dependency-input stage owns the five pnpm network settings and that they are not duplicated elsewhere in the recipe. It does not prove a complete image build or live Docker Desktop startup.
 - `node --test tests/integration/dev-up.test.mjs` exercises profile selection,
   generated configuration, authenticated readiness, rollback, and cleanup with
   inert external engine and cluster commands.
@@ -384,6 +393,8 @@ DNS/TLS, both Helm passes, recovery and destructive teardown.
 [keep this for the user to add notes. do not change between edits]
 
 ## Changelog
+
+- 2026-10-17 07:01: Documented Docker Desktop kubeconfig normalization and resilient runtime dependency networking. (authoring-run/c8cc0a85-dfaf-434d-9adf-7e8f1846f7a0 - a3f92380b090ed9be7ddd57b7dbaefdce4557d0a)
 
 - 2026-10-15 01:49: Build enabled browser proxy before startup. (authoring-run/c11897e0-33a6-4276-b620-aaec6d57ab00 - c7468f5965686a75474d81ba0fd11b9a16ccff75)
 
