@@ -11,7 +11,7 @@ export type { RuntimeFailureCause, RuntimeFailureEvidence } from "@openclaw-ente
 
 export type ControllerWorkState = "queued" | "claimed" | "succeeded" | "failed_permanent";
 
-export type ControllerWorkKind = "lifecycle" | "provisioning";
+export type ControllerWorkKind = "lifecycle" | "provisioning" | "observer";
 
 export type DeploymentStatus = "queued" | "running" | "succeeded" | "failed";
 
